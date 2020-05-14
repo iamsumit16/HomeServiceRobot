@@ -1,132 +1,130 @@
 #include <ros/ros.h>
 #include <visualization_msgs/Marker.h>
-#include "nav_msgs/Odometry.h"
+#include <std_msgs/String.h>
 
+class AddMarkers {
+public:
 
-class Marker {
-  private:
-    double pickUp[2] = {1.96, -1.75,};
-    double dropOff[2] = {-2.35, -1.30};
-    int goal_state = 1;
-    int moving = 1;
-    int pickingUp = 2;
-    int droppingOff = 3;
-    ros::Publisher marker_pub;
-    ros::Subscriber odom_sub;
-    visualization_msgs::Marker marker;
-  
-  public:
-   
-   void displayMarker(double x, double y, int action)
-   {
-       // Marker configuration
-        ros::NodeHandle n;
-        ros::Rate r(1);
-        marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
-        odom_sub = n.subscribe("/odom", 1000, &Marker::odomCallback, this);
+  visualization_msgs::Marker marker;
 
-        // Set our initial shape type to be a cube
-        uint32_t shape = visualization_msgs::Marker::CUBE;
-        
-        
-        // Set the frame ID and timestamp.  See the TF tutorials for information on these.
-        marker.header.frame_id = "map";
-        marker.header.stamp = ros::Time::now();
-
-        // Set the namespace and id for this marker.  This serves to create a unique ID
-        // Any marker sent with the same namespace and id will overwrite the old one
-        
-        marker.ns = "add_markers";
-        marker.id = 0;
-
-        // Set the marker type.  Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
-        marker.type = shape;
-
-        // Set the marker action.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
-        marker.action = visualization_msgs::Marker::ADD;
-
-        // Set the scale of the marker -- 1x1x1 here means 1m on a side
-        marker.scale.x = 0.2;
-        marker.scale.y = 0.2;
-        marker.scale.z = 0.2;
-
-        // Set the color -- be sure to set alpha to something non-zero!
-        marker.color.r = 0.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 1.0;
-
-        marker.pose.position.x = x;
-        marker.pose.position.y = y;
-        
-        if (action == 1)
-        {
-            marker.action = visualization_msgs::Marker::DELETE;
-        }
-        if (action == 2)
-        {
-            marker.action = visualization_msgs::Marker::ADD;
-        }
-
-        marker.lifetime = ros::Duration();
-            
-        publishMarker();
-   
-    }
-
-    void publishMarker(){
-    // Publish the marker
-        while (marker_pub.getNumSubscribers() < 1)
-        {
-        ROS_WARN_ONCE("Please create a subscriber to the marker");
-        sleep(1);
-        }
-        marker_pub.publish(marker);  
-    }
-
-    void odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
+  AddMarkers()
       {
-          // Get pose information
-          float current_pose_x = msg->pose.pose.position.x;
-          float current_pose_y = msg->pose.pose.position.y;
+         //Publisher
+         pub_ = n_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
-          if ((std::abs(pickUp[0] - current_pose_x) + std::abs(pickUp[1] - current_pose_y)) < 1){
-              goal_state = pickingUp; 
-          }
-          else if ((std::abs(dropOff[0] - current_pose_x) + std::abs(dropOff[1] - current_pose_y)) < 1){
-              goal_state = droppingOff; 
-          }
+         //Subscribe to /marker_status from the pick_objects node to know where the marker should be
+         sub_status = n_.subscribe("/marker_status", 1, &AddMarkers::marker_status_callback, this);
+	   
+         marker.header.frame_id = "map";
+         marker.header.stamp = ros::Time::now();
 
-          switch(goal_state){
-              case 1:
-                ROS_INFO("Position-> x: [%f], y: [%f]", current_pose_x, current_pose_x);
-                break;
-              case 2:
-                sleep(5);
-                displayMarker(pickUp[0], pickUp[1], 2);
-                break;
-              case 3:
-                sleep(5);
-                displayMarker(dropOff[0], dropOff[1], 2);
-                break;
-              default:
-                //ROS_INFO("Position-> x: [%f], y: [%f]", current_pose_x, current_pose_x);
-                break;
-          } 
-          publishMarker();
-      }
-    
+         // Set the namespace and id for this marker.
+         marker.ns = "add_markers";
+         marker.id = 0;
+
+         // Set the marker type to cylinder
+         marker.type = visualization_msgs::Marker::CYLINDER;
+
+         // Add the marker
+         marker.action = visualization_msgs::Marker::ADD;
+         marker.pose.orientation.x = 0.0;
+         marker.pose.orientation.y = 0.0;
+         marker.pose.orientation.z = 0.0;
+         marker.pose.orientation.w = 1.0;
+
+         // Set the scale of the marker
+         marker.scale.x = 0.2;
+         marker.scale.y = 0.2;
+         marker.scale.z = 0.25;
+
+         // Set the color
+         marker.color.r = 0.0f;
+         marker.color.g = 1.0f;
+         marker.color.b = 0.0f;
+         marker.color.a = 1.0;
+
+         marker.lifetime = ros::Duration();
+	}
+
+  //Function to publish marker
+  void PublishMarker()
+  {
+   
+    pub_.publish(marker);
+
+  }
+
+  //Callback function for the /marker_status topic
+  void marker_status_callback(const std_msgs::String msg)
+  {
+      if (msg.data == "Pickup")
+	{
+	   
+         //Set marker to pick up position
+         this->SetMarkerPosition(2.8, -1.8, 0.0);
+         ROS_INFO("Marker at Target.");
+
+	}
+
+      //Toggle to invisible to simulate pick up
+      else if (msg.data == "Invisible")
+       {
+	 this->ToggleVisibility();
+          ROS_INFO("Marker hidden.");
+       }
+
+      //Show marker at dop off area
+      else
+     {
+	this->SetMarkerPosition(0, -1.6, 0.0);
+        this->ToggleVisibility();
+        ROS_INFO("Marker at DropOff.");
+     }
+
+      pub_.publish(marker);
+      ros::Duration(5.0).sleep();
+
+  }
+
+
+private:
+  //Private variables
+  ros::NodeHandle n_; 
+  ros::Publisher pub_;
+  ros::Subscriber sub_status;
+
+
+  //Function to toggle marker visibility
+  void ToggleVisibility(){
+   if(marker.color.a == 1.0){
+      marker.color.a = 0.0;
+     }
+   else
+     marker.color.a = 1.0;
+  }
+
+  //Function to change position of marker
+  void SetMarkerPosition (double x,double y, double z){
+
+    // Set the pose of the marker
+    marker.pose.position.x = x;
+    marker.pose.position.y = y;
+    marker.pose.position.z = z;
+  }
+ 
 };
 
 int main( int argc, char** argv )
 {
-  ros::init(argc, argv, "add_markers");
-  
-  Marker displayMarker();
-  
-    while (ros::ok())
-    {
-        ros::spinOnce();
-        
-    }
+
+    ros::init(argc, argv, "add_markers");
+
+    //Call AddMarkers constructor
+    AddMarkers newAddMarkers;
+
+
+   ros::spin();
+
+   return 0;
+
 }
