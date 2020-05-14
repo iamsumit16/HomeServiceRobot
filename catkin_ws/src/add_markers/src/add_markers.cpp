@@ -5,8 +5,8 @@
 
 class Marker {
   private:
-    double pickUp[2] = {1.5, -1.92};
-    double dropOff[2] = {-1.35, -2.5};
+    double pickUp[2] = {1.96, -1.75,};
+    double dropOff[2] = {-2.35, -1.30};
     int goal_state = 1;
     int moving = 1;
     int pickingUp = 2;
@@ -46,9 +46,9 @@ class Marker {
         marker.action = visualization_msgs::Marker::ADD;
 
         // Set the scale of the marker -- 1x1x1 here means 1m on a side
-        marker.scale.x = 0.5;
-        marker.scale.y = 0.5;
-        marker.scale.z = 0.5;
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.2;
 
         // Set the color -- be sure to set alpha to something non-zero!
         marker.color.r = 0.0f;
